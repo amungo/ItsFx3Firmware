@@ -2,9 +2,9 @@
 #define ITS_FX3_PROJECT_CONFIG_H_
 
 /* Set number of SD CARDS on board */
-#define ITS_HAVE_ONE_SDCARD
+//#define ITS_HAVE_ONE_SDCARD
 //#define ITS_HAVE_TWO_SDCARDS  /* don't work */
-//#define ITS_HAVE_NO_SDCARDS
+#define ITS_HAVE_NO_SDCARDS
 
 /* Set if have SPI (no SPI and SDCARD on "FX3S dev kit" at one time?). */
 #define ITS_FX3_HAVE_SPI
