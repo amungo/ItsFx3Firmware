@@ -433,6 +433,151 @@ CyFxBulkSrcSinkApplnStop (
 #endif
 }
 
+static uint32_t read_CPSR(void)
+{
+	register uint32_t cpsr;
+    __asm__ volatile(
+        "MRS %0, CPSR\n\t"
+       : "=r"(cpsr)
+    );
+    return cpsr;
+}
+static void write_CPSR(register uint32_t cpsr)
+{
+    __asm__ volatile(
+        "MSR CPSR, %0;"
+		:
+        : "r"(cpsr)
+    );
+}
+
+/* Set I and F bits in Program Status Register, i.e. disable IRQ and FIQ interrupts */
+static uint32_t disable_interrupts( void )
+{
+	uint32_t cpsr=read_CPSR();
+	write_CPSR( cpsr | 0xC0 );
+	return cpsr;
+}
+
+/* Restore I and F bits in Program Status Register  */
+static void restore_interrupts( register uint32_t cpsr )
+{
+	write_CPSR( (cpsr & 0xC0) | (read_CPSR() & ~0xC0) );
+}
+
+/*
+ * NB! FX3 firmware (at least versions 1.2.2 and 1.2.3 and 1.3.1) clears hardware
+ * Error Counter Register periodically in timer interrupt, specifically in
+ * CyU3PUibLnkErrClrTimerCb function.
+ * Also CyU3PUsbGetErrorCounts implementation itself clears the same hardware
+ * register, causing this way concurrency between hardware and software updating
+ * the same register. As a result, if both HW and SW update the register
+ * concurrently, one of the operations has no effect on content of register.
+ *
+ * Function below is free of CyU3PUsbGetErrorCounts flaw. Unfortunately its
+ * not possible to avoid hardware register clearing in timer interrupt, but
+ * assuming that MyU3PUsbGetErrorCounts function is called frequently enough,
+ * hopefully still a better accuracy can be achieved.
+ *
+ * Note 1. MyU3PUsbGetErrorCounts function is not multi-thread safe (as also
+ *       CyU3PUsbGetErrorCounts is not).
+ */
+static CyU3PReturnStatus_t MyU3PUsbGetErrorCounts(uint16_t *phy_err_cnt, uint16_t *lnk_err_cnt)
+{
+	// This function does not update PHY/LINK errors register.
+	// Instead, it preserves the previous register value and
+	// calculates the changes based on previous and current counter
+	// values.
+	static uint32_t current_value=0; //NB! static variable preserves its value between function calls
+	register uint32_t previous_value;
+	register uint16_t delta;
+
+	if (!phy_err_cnt || !lnk_err_cnt)
+	{
+		return CY_U3P_ERROR_BAD_ARGUMENT;
+	}
+
+	// Take the previous register value
+	previous_value=current_value;
+	// Read current PHY/LINK errors register value (address 0xe0033000+20)
+    // bits 16...31 - PHY  errors
+    // bits  0...15 - LINK errors
+	{
+		// CPU and USB state machine are in separate clock domains
+		// and therefore CPU can see any arbitrary value when
+		// USB state machine updates the register at the same moment.
+		// Let's assume that if three read operations return
+        // equal values then it must be correct value - it's
+        // very very unlikely that it's not.
+		register uint32_t r[3];
+		r[0]=*(volatile uint32_t *)(0xe0033000+20);
+		r[1]=*(volatile uint32_t *)(0xe0033000+20);
+		r[2]=*(volatile uint32_t *)(0xe0033000+20);
+		if (r[0]==r[1] && r[0]==r[2])
+		{
+			current_value=r[0];
+		}
+		else
+		{
+			// Three values were not equal.
+			// Let's try to read again but at maximal speed without any possible pauses
+			// between read operations. The assumption is that USB automata does not
+			// increment error counters very frequently and therefore we should see at
+			// least two identical values.
+			register uint32_t m=disable_interrupts();
+			r[0]=*(volatile uint32_t *)(0xe0033000+20);
+			r[1]=*(volatile uint32_t *)(0xe0033000+20);
+			r[2]=*(volatile uint32_t *)(0xe0033000+20);
+			restore_interrupts(m);
+			// Update current value depending on what the two values were identical.
+			// If there are no identical values then let's assume that
+			// "current value" is equal to "previous value" this time - hopefully next
+			// time we will have better luck.
+			if (r[0]==r[1]) current_value=r[0];
+			else if (r[1]==r[2]) current_value=r[1];
+		}
+	}
+	if (CY_U3P_SUPER_SPEED!=CyU3PUsbGetSpeed())
+	{
+		return CY_U3P_ERROR_INVALID_SEQUENCE;
+	}
+
+	// NB! According Cypress technical support information, hardware error counters saturate
+    // at value 0xFFFF (they never turn around to 0). Therefore, FX3 API needs to clear
+	// counters itself periodically (it does this typically in timer interrupt).
+
+	// NB! FX3 API version 1.3.1 clears LNK error counter but does not clear
+	//     PHY error counter in timer interrupt. Therefore we need to clear counters
+	//     ourselves if they have saturated. But as this is dangerous operation (USB
+	//     state machine may also read any arbitrary value while CPU updates register,
+	//     plus, we will lose errors that have appeared between our read and this write)
+	//     then do this only when this is needed indeed.
+	if (((current_value & 0xFFFF0000) == 0xFFFF0000) || ((current_value & 0x0000FFFF) == 0x0000FFFF))
+	{
+		*(volatile uint32_t *)(0xe0033000+20)=0;
+	}
+
+	// Calculate PHY errors increment
+	delta=(uint16_t)(current_value>>16);
+	if ((uint16_t)(previous_value>>16) <= delta)
+	{
+		delta -= (uint16_t)(previous_value>>16);
+	}
+	*phy_err_cnt=delta;
+
+	// Calculate LINK errors increment
+	delta=(uint16_t)(current_value);
+	if ((uint16_t)previous_value <= delta)
+	{
+		delta -= (uint16_t)previous_value;
+	}
+	*lnk_err_cnt=delta;
+
+	return CY_U3P_SUCCESS;
+}
+
+static unsigned int errff = 0;
+static unsigned int ctrlCounter = 0;
 /* Callback to handle the USB setup requests. */
 CyBool_t
 CyFxBulkSrcSinkApplnUSBSetupCB (
@@ -507,8 +652,35 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 	   				}
 	   				return CyTrue;
 	   			}
-	   		}else if (bRequest == 0xB5)
-	   		{
+	   		} else if (bRequest == 0xB4) {
+	   		    CyU3PMemSet ((uint8_t *)&glEp0Buffer[0], 0, sizeof (glEp0Buffer));
+	   		    unsigned int* Ep0Buffer = (unsigned int*)&glEp0Buffer[0];
+	   		    static unsigned int glPhyErrs = 0;
+	   		    static unsigned int glLnkErrs = 0;
+	   		    Ep0Buffer[0] = ctrlCounter;
+	   		    ctrlCounter++;
+	   		    Ep0Buffer[1] = errff;
+	   		    uint16_t phyerrs;
+	   		    uint16_t lnkerrs;
+	   		    //CyU3PUsbGetErrorCounts(&phyerrs, &lnkerrs);
+	   		    MyU3PUsbGetErrorCounts(&phyerrs, &lnkerrs);
+	   		    Ep0Buffer[2] = phyerrs;
+	   		    Ep0Buffer[3] = lnkerrs;
+	   		    Ep0Buffer[4] = *(volatile uint32_t *)(0xe0033000+20);
+	   		    glPhyErrs += phyerrs;
+	   		    Ep0Buffer[5] = glPhyErrs;
+	   		    glLnkErrs += lnkerrs;
+	   		    Ep0Buffer[6] = glLnkErrs;
+	   		    Ep0Buffer[7] = 0xDEADBEEF;
+	   			CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
+	   			//CyU3PDeviceReset(CyFalse);
+	   			//if ((bReqType & 0x80) == 0)
+	   			{
+	   				//CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+	   				return CyTrue;
+	   			}
+
+	   		} else if (bRequest == 0xB5) {
 	   			//CyU3PDeviceReset(CyFalse);
 	   			//if ((bReqType & 0x80) == 0)
 	   			{
@@ -551,7 +723,8 @@ CyFxBulkSrcSinkApplnGPIFEventCB (
 	case CYU3P_GPIF_EVT_SM_INTERRUPT:
 	{
 		CyU3PDebugPrint (4, "\n\r GPIF overflow INT received\n");
-
+		CyU3PGpioSetValue(50, ((errff>>0)&1));
+		errff += 1;
 	}
 	break;
 
