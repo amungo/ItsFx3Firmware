@@ -43,6 +43,8 @@
    For performance optimizations refer the readme.txt
  */
 
+#define PROJECT_VERSION ( 0x170127A0 )
+
 #include "its_fx3_project_config.h"
 
 #include "cyu3system.h"
@@ -58,7 +60,7 @@
 #include "pib_regs.h"
 #include "cyfxspi_bb.h"
 #include "gpif2_config.h"
-//#include "spi_patch.h"
+#include "host_commands.h"
 
 
 uint8_t glEp0Buffer[32];
@@ -75,6 +77,16 @@ uint32_t glDMATxCount = 0;               /* Counter to track the number of buffe
 CyU3PDmaChannel glSpiTxHandle;   /* SPI Tx channel handle */
 CyU3PDmaChannel glSpiRxHandle;   /* SPI Rx channel handle */
 
+typedef struct SystemState_t {
+//	CyBool_t loaded;
+//	CyBool_t started;
+//	CyBool_t streaming;
+//	CyBool_t need_start;
+	CyBool_t need_reset;
+//	int32_t overflowCount;
+} SystemState_t;
+
+SystemState_t state;
 
 /* Application Error Handler */
 void
@@ -600,108 +612,70 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 	wLength   = ((setupdat1 & CY_U3P_USB_LENGTH_MASK)   >> CY_U3P_USB_LENGTH_POS);
 	wIndex   = ((setupdat1 & CY_U3P_USB_INDEX_MASK)   >> CY_U3P_USB_INDEX_POS);
 
-	if( bRequest == 0x05)
-	{
+	if( bRequest == 0x05) {
+		return CyTrue;
+	} else if ( bRequest == CMD_GET_VERSION ) {
 
-		CyU3PDebugPrint (4, "\n\n\r Vendor Req = 0x%x Received", bRequest);
-		CyU3PDebugPrint (4, "\n\n\r wValue = 0x%d, wLength = 0x%x, wIndex = 0x%x", wValue, wLength,  wIndex );
-		if(wValue) /* Read */
-		{
-			//SpiReadWrite(wIndex, wValue, glEp0Buffer, wLength);
-			/*
-        			tmpbuf = glEp0Buffer;
-        			CyU3PDebugPrint (4, "\n\n\r glRecvdLen = 0x%x status = 0x%x\n\n\r", glRecvdLen, apiRetStatus);
-        			for(wLength=0; wLength<glRecvdLen; wLength++ )
-        			{
-        				CyU3PDebugPrint (4, "\t\t  0x%x ", *(tmpbuf));
-        				tmpbuf++;
-        			}
-			 */
-			//CyU3PUsbSendEP0Data(wLength, glEp0Buffer);
-		}
-		else
-		{
+		FirmwareDescription_t fw_desc;
+		fw_desc.version = PROJECT_VERSION;
+		CyU3PUsbSendEP0Data( (uint16_t)sizeof( FirmwareDescription_t ), (uint8_t*)&fw_desc);
+		return CyTrue;
 
-			/*apiRetStatus = */
-			//CyU3PUsbGetEP0Data (32, glEp0Buffer, &glRecvdLen);
-			//SpiReadWrite(wIndex, wValue, glEp0Buffer, wLength);
+	} else if (bRequest == 0xB3) {
+		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+		//SPI send
+		CyU3PSpiSetSsnLine (CyFalse);
+		CyU3PSpiTransmitWords(glEp0Buffer, 2);
+		CyU3PSpiSetSsnLine (CyTrue);
+		return CyTrue;
 
+	} else if (bRequest == CMD_CYPRESS_RESET) {
 
-		}
+		CyU3PUsbGetEP0Data( wLength, glEp0Buffer, NULL );
+		state.need_reset = CyTrue;
+		return CyTrue;
+
+	} else if (bRequest == CMD_READ_DEBUG_INFO) {
+
+		CyU3PMemSet ((uint8_t *)&glEp0Buffer[0], 0, sizeof (glEp0Buffer));
+		unsigned int* Ep0Buffer = (unsigned int*)&glEp0Buffer[0];
+		static unsigned int glPhyErrs = 0;
+		static unsigned int glLnkErrs = 0;
+		Ep0Buffer[0] = ctrlCounter;
+		ctrlCounter++;
+		Ep0Buffer[1] = errff;
+		uint16_t phyerrs;
+		uint16_t lnkerrs;
+		//CyU3PUsbGetErrorCounts(&phyerrs, &lnkerrs);
+		MyU3PUsbGetErrorCounts(&phyerrs, &lnkerrs);
+		Ep0Buffer[2] = phyerrs;
+		Ep0Buffer[3] = lnkerrs;
+		Ep0Buffer[4] = *(volatile uint32_t *)(0xe0033000+20);
+		glPhyErrs += phyerrs;
+		Ep0Buffer[5] = glPhyErrs;
+		glLnkErrs += lnkerrs;
+		Ep0Buffer[6] = glLnkErrs;
+		Ep0Buffer[7] = 0xDEADBEEF;
+		CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
+		return CyTrue;
+
+	} else if (bRequest == CMD_REG_READ) {
+		CyU3PDmaBuffer_t buf_p;
+
+		//CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+		glEp0Buffer[0] = wValue; glEp0Buffer[1] = wIndex;
+
+		//SPI send
+		CyU3PSpiSetSsnLine (CyFalse);
+		CyU3PSpiTransmitReceiveWords(glEp0Buffer, 2);
+
+		//CyU3PSpiTransmitWords(glEp0Buffer, 2);
+		CyU3PSpiSetSsnLine (CyTrue);
+
+		CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
 
 		return CyTrue;
 	}
-	else
-		//if (bType == CY_U3P_USB_VENDOR_RQT)
-		{
-	   		if (bRequest == 0xB3)
-	   		{
-	   			//CyU3PDeviceReset(CyFalse);
-	   			//if ((bReqType & 0x80) == 0)
-	   			{
-	   				CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
-	   				if (glEp0Buffer[2] != 0xFF)
-	   				{
-	   					//SPI send
-	   					CyU3PSpiSetSsnLine (CyFalse);
-	   					CyU3PSpiTransmitWords(glEp0Buffer, 2);
-	   					CyU3PSpiSetSsnLine (CyTrue);
-	   				}else
-	   				{
-	   					CyU3PDeviceReset(CyFalse);
-	   				}
-	   				return CyTrue;
-	   			}
-	   		} else if (bRequest == 0xB4) {
-	   		    CyU3PMemSet ((uint8_t *)&glEp0Buffer[0], 0, sizeof (glEp0Buffer));
-	   		    unsigned int* Ep0Buffer = (unsigned int*)&glEp0Buffer[0];
-	   		    static unsigned int glPhyErrs = 0;
-	   		    static unsigned int glLnkErrs = 0;
-	   		    Ep0Buffer[0] = ctrlCounter;
-	   		    ctrlCounter++;
-	   		    Ep0Buffer[1] = errff;
-	   		    uint16_t phyerrs;
-	   		    uint16_t lnkerrs;
-	   		    //CyU3PUsbGetErrorCounts(&phyerrs, &lnkerrs);
-	   		    MyU3PUsbGetErrorCounts(&phyerrs, &lnkerrs);
-	   		    Ep0Buffer[2] = phyerrs;
-	   		    Ep0Buffer[3] = lnkerrs;
-	   		    Ep0Buffer[4] = *(volatile uint32_t *)(0xe0033000+20);
-	   		    glPhyErrs += phyerrs;
-	   		    Ep0Buffer[5] = glPhyErrs;
-	   		    glLnkErrs += lnkerrs;
-	   		    Ep0Buffer[6] = glLnkErrs;
-	   		    Ep0Buffer[7] = 0xDEADBEEF;
-	   			CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
-	   			//CyU3PDeviceReset(CyFalse);
-	   			//if ((bReqType & 0x80) == 0)
-	   			{
-	   				//CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
-	   				return CyTrue;
-	   			}
-
-	   		} else if (bRequest == 0xB5) {
-	   			//CyU3PDeviceReset(CyFalse);
-	   			//if ((bReqType & 0x80) == 0)
-	   			{
-	   				CyU3PDmaBuffer_t buf_p;
-
-	   				//CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
-	   				glEp0Buffer[0] = wValue; glEp0Buffer[1] = wIndex;
-
-	   					//SPI send
-	   				CyU3PSpiSetSsnLine (CyFalse);
-	   				CyU3PSpiTransmitReceiveWords(glEp0Buffer, 2);
-
-	   				//CyU3PSpiTransmitWords(glEp0Buffer, 2);
-	   				CyU3PSpiSetSsnLine (CyTrue);
-
-	   				CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
-
-	   				return CyTrue;
-	   			}
-	   		}
-		}
 
 	/* Fast enumeration is used. Only class, vendor and unknown requests
 	 * are received by this function. These are not handled in this
@@ -944,7 +918,7 @@ void
 BulkSrcSinkAppThread_Entry (
 		uint32_t input)
 {
-
+	state.need_reset = CyFalse;
 	/* Initialize the debug module */
 	//CyFxBulkSrcSinkApplnDebugInit();
 
@@ -959,7 +933,11 @@ BulkSrcSinkAppThread_Entry (
 	CyU3PDebugPrint (6, "\n\rSTART DBM");
 	for (;;)
 	{
-		CyU3PThreadSleep (3000);
+		CyU3PThreadSleep(100);
+		if ( state.need_reset == CyTrue ) {
+			CyU3PThreadSleep(2500);
+			CyU3PDeviceReset(CyFalse);
+		}
 
 
 		/*if (glIsApplnActive)
