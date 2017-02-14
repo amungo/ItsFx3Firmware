@@ -37,6 +37,7 @@
 #define NT1065EN		(17)		/* GPIO17, CTL[0] */
 #define VCTCXOEN		(19)		/* GPIO19, CTL[2] */
 #define ANTLNAEN		(50)		/* GPIO50 */
+#define ANTFEEDEN		(18)		/* GPIO18, CTL[1] */
 
 
 /*

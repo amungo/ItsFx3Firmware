@@ -209,6 +209,13 @@ void CyFxGpioInit(void) {
 				"SPI_SS0 CyU3PDeviceGpioOverride failed, error code = %d\n",
 				apiRetStatus);
 	}
+	apiRetStatus = CyU3PDeviceGpioOverride(ANTFEEDEN, CyTrue);
+	if (apiRetStatus != 0) {
+		/* Error Handling */
+		CyU3PDebugPrint(4,
+				"SPI_SS0 CyU3PDeviceGpioOverride failed, error code = %d\n",
+				apiRetStatus);
+	}
 	apiRetStatus = CyU3PDeviceGpioOverride(ANTLNAEN, CyTrue);
 	if (apiRetStatus != 0) {
 		/* Error Handling */
@@ -261,6 +268,13 @@ void CyFxGpioInit(void) {
 				apiRetStatus);
 	}
 	apiRetStatus = CyU3PGpioSetSimpleConfig(VCTCXOEN, &gpioConfig);
+	if (apiRetStatus != CY_U3P_SUCCESS) {
+		/* Error handling */
+		CyU3PDebugPrint(4,
+				"CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				apiRetStatus);
+	}
+	apiRetStatus = CyU3PGpioSetSimpleConfig(ANTFEEDEN, &gpioConfig);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
@@ -336,6 +350,13 @@ void CyFxGpioInit(void) {
 				apiRetStatus);
 	}
 	apiRetStatus = CyU3PGpioSetValue(VCTCXOEN, CyTrue);
+	if (apiRetStatus != CY_U3P_SUCCESS) {
+		/* Error handling */
+		CyU3PDebugPrint(4,
+				"CyU3PGpioSetValue failed, error code = %d\n",
+				apiRetStatus);
+	}
+	apiRetStatus = CyU3PGpioSetValue(ANTFEEDEN, CyTrue);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
