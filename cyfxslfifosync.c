@@ -43,7 +43,7 @@
    For performance optimizations refer the readme.txt
  */
 
-#define PROJECT_VERSION ( 0x17021400 )
+#define PROJECT_VERSION ( 0x17050700 )
 
 #include "its_fx3_project_config.h"
 
@@ -697,7 +697,6 @@ CyFxBulkSrcSinkApplnGPIFEventCB (
 	case CYU3P_GPIF_EVT_SM_INTERRUPT:
 	{
 		CyU3PDebugPrint (4, "\n\r GPIF overflow INT received\n");
-		CyU3PGpioSetValue(50, ((errff>>0)&1));
 		errff += 1;
 	}
 	break;
