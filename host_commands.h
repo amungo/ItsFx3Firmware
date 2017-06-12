@@ -8,6 +8,10 @@
 #define CMD_REG_READ        ( 0xB5 )
 #define CMD_CYPRESS_RESET   ( 0xBF )
 
+#define CMD_START       ( 0xC0 )
+#define CMD_WRITE_GPIO  ( 0xC1 )
+#define CMD_READ_GPIO   ( 0xC2 )
+
 typedef struct FirmwareDescription_t {
 	uint32_t version;
 	uint8_t  reserved[ 28 ];

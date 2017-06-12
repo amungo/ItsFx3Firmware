@@ -30,11 +30,10 @@
 #define SPI_MOSI		(18)		/* SPI data OUT line,   GPIO18, CTL[1] */
 #define SPI_MISO		(24)		/* SPI data IN line, GPIO24, CTL[7] */
 #define SPI_SS0			(20)		/* SPI Slave select for AD9269, GPIO20, CTL[3] */
-#define SE4150EN		(22)		/* receiver enable CTRL[5], GPIO22 */
-#define AD9361RST		(24)		/* SPI data IN line, GPIO24, CTL[7] */
 #define SPI_SS1			(0)		/* SPI Slave select for other device */
 
 #define NT1065EN		(17)		/* GPIO17, CTL[0] */
+#define NT1065AOK		(52)		/* GPIO52 */
 #define VCTCXOEN		(19)		/* GPIO19, CTL[2] */
 #define ANTLNAEN		(50)		/* GPIO50 */
 #define ANTFEEDEN		(18)		/* GPIO18, CTL[1] */
