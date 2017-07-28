@@ -43,7 +43,7 @@
    For performance optimizations refer the readme.txt
  */
 
-#define PROJECT_VERSION ( 0x170612A1 )
+#define PROJECT_VERSION ( 0x17072800 )
 
 #include "its_fx3_project_config.h"
 

@@ -176,7 +176,7 @@ void CyFxGpioInit(void) {
 
 
 
-	apiRetStatus = CyU3PGpioSetValue(ANTLNAEN,  CyFalse);
+	apiRetStatus = CyU3PGpioSetValue(ANTLNAEN,  CyTrue);
 	CheckError(apiRetStatus);
 
 	apiRetStatus = CyU3PGpioSetValue(VCTCXOEN,  CyTrue);
@@ -188,7 +188,7 @@ void CyFxGpioInit(void) {
 	apiRetStatus = CyU3PGpioSetValue(NT1065AOK, CyFalse);
 	CheckError(apiRetStatus);
 
-	apiRetStatus = CyU3PGpioSetValue(ANTFEEDEN, CyFalse);
+	apiRetStatus = CyU3PGpioSetValue(ANTFEEDEN, CyTrue);
 	CheckError(apiRetStatus);
 
 
