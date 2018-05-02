@@ -26,18 +26,33 @@
 #include "cyu3usbconst.h"
 #include "cyu3externcstart.h"
 
-#define SPI_CLK			(17)		/* SPI CLOCK signal, GPIO17, CTL[0] */
-#define SPI_MOSI		(18)		/* SPI data OUT line,   GPIO18, CTL[1] */
-#define SPI_MISO		(24)		/* SPI data IN line, GPIO24, CTL[7] */
-#define SPI_SS0			(20)		/* SPI Slave select for AD9269, GPIO20, CTL[3] */
-#define SE4150EN		(22)		/* receiver enable CTRL[5], GPIO22 */
-#define AD9361RST		(24)		/* SPI data IN line, GPIO24, CTL[7] */
-#define SPI_SS1			(0)		/* SPI Slave select for other device */
+#define SPI_CLK			(53)		/* SPI CLOCK signal, GPIO53, CTL[0] */
+#define SPI_MOSI		(56)		/* SPI data OUT line,   GPIO56, CTL[1] */
+#define SPI_MISO		(55)		/* SPI data IN line, GPIO55, CTL[7] */
+#define SPI_SS0			(54)		/* SPI Slave select for AD9269, GPIO54, CTL[3] */
+#define SPI_SS1			(0)		    /* SPI Slave select for other device */
 
-#define NT1065EN		(17)		/* GPIO17, CTL[0] */
-#define VCTCXOEN		(19)		/* GPIO19, CTL[2] */
-#define ANTLNAEN		(50)		/* GPIO50 */
-#define ANTFEEDEN		(18)		/* GPIO18, CTL[1] */
+#define FPGA_HOLDN		(41)
+#define FPGA_CS 		(44)
+#define FPGA_INIT_B 	(43)	//52
+#define FPGA_PROG_B 	(42) 	//51
+#define FPGA_DONE 		(40) 	//50
+
+#define TEST_LED 		(45)
+#define TEST_LED2 		(48)
+//
+#define FPGA_STRMEN 	(24)
+
+// NT
+#define TCXO_EN 		(36)
+#define RCV_EN			(23)
+#define ANTFEED_EN 		(38)
+#define NT1065_CS 		(39)
+#define NT1065_AOK 		(33)
+
+
+#define FCTRL_CS 		(35)
+#define FCTRL_LATCH 	(34)
 
 
 /*

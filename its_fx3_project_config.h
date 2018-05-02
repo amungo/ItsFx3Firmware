@@ -7,7 +7,7 @@
 #define ITS_HAVE_NO_SDCARDS
 
 /* Set if have SPI (no SPI and SDCARD on "FX3S dev kit" at one time?). */
-#define ITS_FX3_HAVE_SPI
+#define ITS_FX3_HAVE_SPI 1
 //#define ITS_FX3_DONT_HAVE_SPI
 
 

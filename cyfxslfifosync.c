@@ -57,13 +57,14 @@
 #include "cyu3gpif.h"
 #include "cyu3pib.h"
 #include "cyu3spi.h"
+#include "cyu3gpio.h"
 #include "pib_regs.h"
 #include "cyfxspi_bb.h"
 #include "gpif2_config.h"
 #include "host_commands.h"
 
 
-uint8_t glEp0Buffer[32];
+uint8_t glEp0Buffer[2*512];
 uint16_t glRecvdLen;
 CyU3PThread     bulkSrcSinkAppThread;	 /* Application thread structure */
 CyU3PDmaChannel glChHandleBulkSink;      /* DMA MANUAL_IN channel handle.          */
@@ -166,6 +167,7 @@ CyFxBulkSrcSinkApplnDebugInit (void)
 	CyU3PThreadSleep (3000);
 	CyU3PDebugPrint (4, "UART CONFIGURED3\n");*/
 }
+
 
 CyU3PDmaChannel glChHandleUtoCPU;   /* DMA Channel handle for U2CPU transfer. */
 CyU3PDmaChannelConfig_t dmaCfg1;
@@ -310,12 +312,13 @@ CyFxBulkSrcSinkApplnStart (
 	    CyU3PMemSet ((uint8_t *)&epCfg, 0, sizeof (epCfg));
 	    epCfg.enable = CyTrue;
 	    epCfg.epType = CY_U3P_USB_EP_BULK;
-	    epCfg.burstLen = 1;
+	    epCfg.burstLen = (usbSpeed == CY_U3P_SUPER_SPEED) ? (CY_FX_EP_BURST_LENGTH) : 1; //---epCfg.burstLen = 1;
+
 	    epCfg.streams = 0;
 	    epCfg.pcktSize = size;
 
 	    /* Producer endpoint configuration */
-	    apiRetStatus = CyU3PSetEpConfig(CY_FX_EP_PRODUCER, &epCfg);
+		apiRetStatus = CyU3PSetEpConfig(CY_FX_EP_PRODUCER, &epCfg);
 	    if (apiRetStatus != CY_U3P_SUCCESS)
 	    {
 	        CyU3PDebugPrint (4, "CyU3PSetEpConfig failed, Error code = %d\n", apiRetStatus);
@@ -331,8 +334,7 @@ CyFxBulkSrcSinkApplnStart (
 	    dmaCfg1.consSckId = CY_U3P_CPU_SOCKET_CONS;
 	    dmaCfg1.dmaMode = CY_U3P_DMA_MODE_BYTE;
 	    /* Enabling the callback for produce event. */
-	    dmaCfg1.notification = 0;
-	    dmaCfg1.cb = NULL;
+
 	    dmaCfg1.prodHeader = 0;
 	    dmaCfg1.prodFooter = 0;
 	    dmaCfg1.consHeader = 0;
@@ -621,18 +623,9 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 		CyU3PUsbSendEP0Data( (uint16_t)sizeof( FirmwareDescription_t ), (uint8_t*)&fw_desc);
 		return CyTrue;
 
-	} else if (bRequest == 0xB3) {
-		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
-		//SPI send
-		CyU3PSpiSetSsnLine (CyFalse);
-		CyU3PSpiTransmitWords(glEp0Buffer, 2);
-		CyU3PSpiSetSsnLine (CyTrue);
-		return CyTrue;
-
 	} else if (bRequest == CMD_CYPRESS_RESET) {
+		CyU3PDeviceReset(CyFalse);
 
-		CyU3PUsbGetEP0Data( wLength, glEp0Buffer, NULL );
-		state.need_reset = CyTrue;
 		return CyTrue;
 
 	} else if (bRequest == CMD_READ_DEBUG_INFO) {
@@ -655,24 +648,160 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 		Ep0Buffer[5] = glPhyErrs;
 		glLnkErrs += lnkerrs;
 		Ep0Buffer[6] = glLnkErrs;
-		Ep0Buffer[7] = 0xDEADBEEF;
+		CyU3PGpifGetSMState(&Ep0Buffer[7]);
+		Ep0Buffer[8] = 0xDEADBEEF;
 		CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
 		return CyTrue;
 
-	} else if (bRequest == CMD_REG_READ) {
-		CyU3PDmaBuffer_t buf_p;
+	} else if (bRequest == CMD_ECP5_RESET) { //ECP5 FPGA configuration: First phase
+		CyBool_t xFpga_Init_B;
+		glEp0Buffer[0] = 1;
+		CyU3PGpioSimpleSetValue (FPGA_PROG_B, 0);
 
-		//CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
-		glEp0Buffer[0] = wValue; glEp0Buffer[1] = wIndex;
+		CyU3PSpiTransmitWords(glEp0Buffer, wLength);
 
-		//SPI send
-		CyU3PSpiSetSsnLine (CyFalse);
-		CyU3PSpiTransmitReceiveWords(glEp0Buffer, 2);
+		CyU3PGpioSimpleGetValue (FPGA_INIT_B, &xFpga_Init_B);
 
-		//CyU3PSpiTransmitWords(glEp0Buffer, 2);
-		CyU3PSpiSetSsnLine (CyTrue);
+		CyU3PGpioSimpleGetValue (FPGA_INIT_B, &xFpga_Init_B);
+		if (0 == xFpga_Init_B)
+		{
+			CyU3PThreadSleep(10);
+			/* Release PROG_B line */
+			CyU3PGpioSimpleSetValue (FPGA_PROG_B, 1);
+			CyU3PThreadSleep(10);   // Allow FPGA to startup
+
+			/* Check if FPGA is now ready by testing the FPGA_Init_B signal */
+			CyU3PGpioSimpleGetValue (FPGA_INIT_B, &xFpga_Init_B);
+			if( 0 == xFpga_Init_B )	glEp0Buffer[0] = 0;
+		}
+		else
+		{
+			glEp0Buffer[0] = 0;
+		}
+		CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
+
+		return CyTrue;
+	}
+	else if (bRequest == CMD_ECP5_CHECK) { //FPGA configuration: last phase
+		CyBool_t xFpga_Done;
+		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+
+		glEp0Buffer[0] = 1;
+		CyU3PGpioSimpleGetValue (FPGA_DONE, &xFpga_Done);
+		if((xFpga_Done != CyTrue))
+			glEp0Buffer[0] = 0;
 
 		CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
+
+		return CyTrue;
+	}
+	else if (bRequest == CMD_ECP5_WRITE) { //ECP5 transmit
+
+		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+		CyU3PGpioSimpleSetValue (TEST_LED, 0);
+
+		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+		apiRetStatus = CyU3PSpiTransmitWords(glEp0Buffer, wLength);
+		if (apiRetStatus != CY_U3P_SUCCESS) {
+			if (apiRetStatus == CY_U3P_ERROR_NOT_CONFIGURED)
+				CyU3PGpioSimpleSetValue (TEST_LED, 1);
+		}
+		CyU3PThreadSleep(1);
+
+		return CyTrue;
+	}else if (bRequest == CMD_ECP5_READ) {	//ECP5 receive
+
+		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+		CyU3PGpioSimpleSetValue (TEST_LED, 0);
+
+		apiRetStatus = CyU3PSpiReceiveWords(glEp0Buffer, wLength);
+		if (apiRetStatus != CY_U3P_SUCCESS) {
+
+			if(apiRetStatus == CY_U3P_ERROR_NOT_CONFIGURED)
+				CyU3PGpioSimpleSetValue (TEST_LED, 1);
+
+		}
+
+		apiRetStatus = CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
+		if (apiRetStatus != CY_U3P_SUCCESS) {
+
+			if(apiRetStatus == CY_U3P_ERROR_NOT_CONFIGURED)
+				CyU3PGpioSimpleSetValue (TEST_LED, 1);
+
+		}
+		return CyTrue;
+	}
+	else if(bRequest == CMD_ECP5_CSON) { //CS on
+		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+		CyU3PGpioSimpleSetValue (FPGA_CS, 1);
+		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+
+		return CyTrue;
+	}else if(bRequest == CMD_ECP5_CSOFF) { //CS off
+		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+		CyU3PGpioSimpleSetValue (FPGA_CS, 0);
+		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+
+		return CyTrue;
+	}else if(bRequest == CMD_REG_WRITE8) { // NT1065 write SPI 8 bit
+		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+		CyU3PGpioSimpleSetValue (NT1065_CS, 0);
+		CyU3PSpiTransmitWords(glEp0Buffer, 2);
+		CyU3PGpioSimpleSetValue (NT1065_CS, 1);
+
+		return CyTrue;
+	}else if(bRequest == CMD_REG_READ8) { //NT1065 read
+		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+		CyU3PGpioSimpleSetValue (NT1065_CS, 0);
+		glEp0Buffer[0] = wValue;
+		CyU3PSpiTransmitWords(glEp0Buffer, 1);
+		CyU3PSpiReceiveWords(glEp0Buffer, 1);
+		CyU3PGpioSimpleSetValue (NT1065_CS, 1);
+
+		CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
+
+		return CyTrue;
+	}else if(bRequest == CMD_NT1065_RESET) { //NT1065 reset
+		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+
+		glEp0Buffer[0] = 0;
+		CyU3PSpiTransmitWords(glEp0Buffer, 1);
+		CyU3PGpioSimpleSetValue (TCXO_EN, 0);
+		CyU3PGpioSimpleSetValue (RCV_EN, 0);
+		CyU3PGpioSimpleSetValue (NT1065_CS, 0);
+		CyU3PGpioSimpleSetValue (NT1065_AOK, 0);
+		CyU3PGpioSimpleSetValue (TCXO_EN, 1);
+		CyU3PThreadSleep(100);
+		CyU3PGpioSimpleSetValue (RCV_EN, 1); //RCV_EN
+		CyU3PGpioSimpleSetValue (NT1065_CS, 1);
+
+		return CyTrue;
+	}else if(bRequest == CMD_ECP5_SET_DAC) { //DAC set
+		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+
+		CyU3PGpioSimpleSetValue (FCTRL_CS, 0);
+
+		apiRetStatus = CyU3PSpiTransmitWords(glEp0Buffer, 3);
+		CyU3PGpioSimpleSetValue (FCTRL_CS, 1);
+
+		CyU3PGpioSimpleSetValue (FCTRL_LATCH, 0);
+		CyU3PGpioSimpleSetValue (FCTRL_LATCH, 1);
+
+		return CyTrue;
+ 	}
+	else if(bRequest == CMD_DEVICE_START) {
+		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+		CyU3PGpifControlSWInput(CyTrue);
+		//CyU3PGpioSetValue (FPGA_STRMEN, 1);
+
+		return CyTrue;
+	}else if (bRequest == CMD_DEVICE_STOP){
+		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+		CyU3PGpifControlSWInput(CyFalse);
+		//CyU3PGpioSetValue (FPGA_STRMEN, 0);
 
 		return CyTrue;
 	}
@@ -690,13 +819,12 @@ CyFxBulkSrcSinkApplnGPIFEventCB (
 )
 {
 
-	CyU3PDebugPrint (4, "\n\r !!!!GPIF INTERRUPT\n");
-
+	//CyU3PDebugPrint (4, "\n\r !!!!GPIF INTERRUPT\n");
 	switch (event)
 	{
 	case CYU3P_GPIF_EVT_SM_INTERRUPT:
 	{
-		CyU3PDebugPrint (4, "\n\r GPIF overflow INT received\n");
+		//CyU3PDebugPrint (4, "\n\r GPIF overflow INT received\n");
 		errff += 1;
 	}
 	break;
@@ -704,8 +832,6 @@ CyFxBulkSrcSinkApplnGPIFEventCB (
 
 	default:
 		break;
-
-
 
 	}
 }
@@ -736,7 +862,7 @@ CyFxBulkSrcSinkApplnUSBEventCB (
 		/* Stop the source sink function. */
 		if (glIsApplnActive)
 		{
-			CyFxBulkSrcSinkApplnStop ();
+			CyFxBulkSrcSinkApplnStop();
 		}
 		break;
 
@@ -748,17 +874,18 @@ CyFxBulkSrcSinkApplnUSBEventCB (
 void CyFxStartAd9269Gpif(void)
 {
 	CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
-	    /* Start the state machine. */
-	    	apiRetStatus = CyU3PGpifSMStart (RESET, ALPHA_RESET);
-			//apiRetStatus = CyU3PGpifSMStart (START, ALPHA_START);
-	    	if (apiRetStatus != CY_U3P_SUCCESS)
-	    	{
-	    		CyU3PDebugPrint (4, "CyU3PGpifSMStart failed, Error Code = %d\n",apiRetStatus);
+	/* Start the state machine. */
 
-	    	}
+	CyU3PGpifControlSWInput(CyFalse);
+	apiRetStatus = CyU3PGpifSMStart (RESET, ALPHA_RESET);
+	//apiRetStatus = CyU3PGpifSMStart (STATE9, ALPHA_RESET);
+	if (apiRetStatus != CY_U3P_SUCCESS)
+	{
+		CyU3PGpioSimpleSetValue(TEST_LED, 1);
+		CyU3PDebugPrint (4, "CyU3PGpifSMStart failed, Error Code = %d\n",apiRetStatus);
+	}
 
-    		CyU3PDebugPrint (4, "CyU3PGpifSMStart Done = %d\n",apiRetStatus);
-
+	CyU3PDebugPrint (4, "CyU3PGpifSMStart Done = %d\n",apiRetStatus);
 
 }
 
@@ -779,7 +906,7 @@ CyFxBulkSrcSinkApplnInit (void)
 	CyU3PPibClock_t pibClock;
 
 	/* Initialize the p-port block. */
-	pibClock.clkDiv = 2;
+	pibClock.clkDiv = 4; // 2;
 	pibClock.clkSrc = CY_U3P_SYS_CLK;
 	pibClock.isHalfDiv = CyFalse;
 	/* Disable DLL for sync GPIF */
@@ -791,10 +918,14 @@ CyFxBulkSrcSinkApplnInit (void)
 		CyFxAppErrorHandler(apiRetStatus);
 	}
 
+	CyU3PGpifControlSWInput(CyFalse);
+
+
 	/* Load the GPIF configuration for Slave FIFO sync mode. */
 	apiRetStatus = CyU3PGpifLoad (&CyFxGpifConfig);
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
+		CyU3PGpioSimpleSetValue(TEST_LED, 1);
 		CyU3PDebugPrint (4, "CyU3PGpifLoad failed, Error Code = %d\n",apiRetStatus);
 		CyFxAppErrorHandler(apiRetStatus);
 	}
@@ -807,6 +938,7 @@ CyFxBulkSrcSinkApplnInit (void)
 	apiRetStatus = CyU3PUsbStart();
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
+		CyU3PGpioSimpleSetValue(TEST_LED, 1);
 		CyU3PDebugPrint (4, "CyU3PUsbStart failed to Start, Error code = %d\n", apiRetStatus);
 		CyFxAppErrorHandler(apiRetStatus);
 	}
@@ -825,6 +957,7 @@ CyFxBulkSrcSinkApplnInit (void)
 	apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_DEVICE_DESCR, NULL, (uint8_t *)CyFxUSB30DeviceDscr);
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
+		CyU3PGpioSimpleSetValue(TEST_LED, 1);
 		CyU3PDebugPrint (4, "USB set device descriptor failed, Error code = %d\n", apiRetStatus);
 		CyFxAppErrorHandler(apiRetStatus);
 	}
@@ -833,6 +966,7 @@ CyFxBulkSrcSinkApplnInit (void)
 	apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_HS_DEVICE_DESCR, NULL, (uint8_t *)CyFxUSB20DeviceDscr);
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
+		CyU3PGpioSimpleSetValue(TEST_LED, 1);
 		CyU3PDebugPrint (4, "USB set device descriptor failed, Error code = %d\n", apiRetStatus);
 		CyFxAppErrorHandler(apiRetStatus);
 	}
@@ -841,6 +975,7 @@ CyFxBulkSrcSinkApplnInit (void)
 	apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_BOS_DESCR, NULL, (uint8_t *)CyFxUSBBOSDscr);
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
+		CyU3PGpioSimpleSetValue(TEST_LED, 1);
 		CyU3PDebugPrint (4, "USB set configuration descriptor failed, Error code = %d\n", apiRetStatus);
 		CyFxAppErrorHandler(apiRetStatus);
 	}
@@ -849,6 +984,7 @@ CyFxBulkSrcSinkApplnInit (void)
 	apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_DEVQUAL_DESCR, NULL, (uint8_t *)CyFxUSBDeviceQualDscr);
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
+		CyU3PGpioSimpleSetValue(TEST_LED, 1);
 		CyU3PDebugPrint (4, "USB set device qualifier descriptor failed, Error code = %d\n", apiRetStatus);
 		CyFxAppErrorHandler(apiRetStatus);
 	}
@@ -857,6 +993,7 @@ CyFxBulkSrcSinkApplnInit (void)
 	apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_SS_CONFIG_DESCR, NULL, (uint8_t *)CyFxUSBSSConfigDscr);
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
+		CyU3PGpioSimpleSetValue(TEST_LED, 1);
 		CyU3PDebugPrint (4, "USB set configuration descriptor failed, Error code = %d\n", apiRetStatus);
 		CyFxAppErrorHandler(apiRetStatus);
 	}
@@ -865,6 +1002,7 @@ CyFxBulkSrcSinkApplnInit (void)
 	apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_HS_CONFIG_DESCR, NULL, (uint8_t *)CyFxUSBHSConfigDscr);
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
+		CyU3PGpioSimpleSetValue(TEST_LED, 1);
 		CyU3PDebugPrint (4, "USB Set Other Speed Descriptor failed, Error Code = %d\n", apiRetStatus);
 		CyFxAppErrorHandler(apiRetStatus);
 	}
@@ -873,6 +1011,7 @@ CyFxBulkSrcSinkApplnInit (void)
 	apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_FS_CONFIG_DESCR, NULL, (uint8_t *)CyFxUSBFSConfigDscr);
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
+		CyU3PGpioSimpleSetValue(TEST_LED, 1);
 		CyU3PDebugPrint (4, "USB Set Configuration Descriptor failed, Error Code = %d\n", apiRetStatus);
 		CyFxAppErrorHandler(apiRetStatus);
 	}
@@ -881,6 +1020,7 @@ CyFxBulkSrcSinkApplnInit (void)
 	apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_STRING_DESCR, 0, (uint8_t *)CyFxUSBStringLangIDDscr);
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
+		CyU3PGpioSimpleSetValue(TEST_LED, 1);
 		CyU3PDebugPrint (4, "USB set string descriptor failed, Error code = %d\n", apiRetStatus);
 		CyFxAppErrorHandler(apiRetStatus);
 	}
@@ -889,6 +1029,7 @@ CyFxBulkSrcSinkApplnInit (void)
 	apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_STRING_DESCR, 1, (uint8_t *)CyFxUSBManufactureDscr);
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
+		CyU3PGpioSimpleSetValue (TEST_LED, 1);
 		CyU3PDebugPrint (4, "USB set string descriptor failed, Error code = %d\n", apiRetStatus);
 		CyFxAppErrorHandler(apiRetStatus);
 	}
@@ -897,6 +1038,7 @@ CyFxBulkSrcSinkApplnInit (void)
 	apiRetStatus = CyU3PUsbSetDesc(CY_U3P_USB_SET_STRING_DESCR, 2, (uint8_t *)CyFxUSBProductDscr);
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
+		CyU3PGpioSimpleSetValue(TEST_LED, 1);
 		CyU3PDebugPrint (4, "USB set string descriptor failed, Error code = %d\n", apiRetStatus);
 		CyFxAppErrorHandler(apiRetStatus);
 	}
@@ -905,8 +1047,14 @@ CyFxBulkSrcSinkApplnInit (void)
 	apiRetStatus = CyU3PConnectState(CyTrue, CyTrue);
 	if (apiRetStatus != CY_U3P_SUCCESS)
 	{
+		CyU3PGpioSimpleSetValue (TEST_LED, 1);
 		CyU3PDebugPrint (4, "USB Connect failed, Error code = %d\n", apiRetStatus);
 		CyFxAppErrorHandler(apiRetStatus);
+	}
+
+	{
+		//---CyU3PGpioSimpleSetValue (TEST_LED, 0);
+		//---CyU3PGpioSimpleSetValue (TEST_LED, 1);
 	}
 
 
@@ -921,19 +1069,18 @@ BulkSrcSinkAppThread_Entry (
 	/* Initialize the debug module */
 	//CyFxBulkSrcSinkApplnDebugInit();
 
-	/* Initialize GPIO module. */
-	CyFxGpioInit();
 	/* Initialize the application */
 	CyFxBulkSrcSinkApplnInit();
 
 	//CyFxConfigureAd9269(3);
 
 	CyFxStartAd9269Gpif();
-	CyU3PDebugPrint (6, "\n\rSTART DBM");
+
+	//---CyU3PDebugPrint (6, "\n\rSTART DBM");
 	for (;;)
 	{
-		CyU3PThreadSleep(100);
-		if ( state.need_reset == CyTrue ) {
+		CyU3PThreadSleep(3000);
+		if( state.need_reset == CyTrue ) {
 			CyU3PThreadSleep(2500);
 			CyU3PDeviceReset(CyFalse);
 		}
@@ -979,6 +1126,7 @@ CyFxApplicationDefine (
 			CYU3P_AUTO_START                         /* Start the thread immediately */
 	);
 
+
 	/* Check the return code */
 	if (retThrdCreate != 0)
 	{
@@ -990,6 +1138,7 @@ CyFxApplicationDefine (
 		/* Loop indefinitely */
 		while(1);
 	}
+
 }
 
 /*
@@ -1053,7 +1202,7 @@ main (void)
     io_cfg.gpioSimpleEn[1]  = 0;
 #endif
 
-    io_cfg.useUart  = CyFalse;
+    io_cfg.useUart  = CyTrue;//
     io_cfg.useI2C   = CyFalse;
     io_cfg.useI2S   = CyFalse;
 #ifdef ITS_FX3_HAVE_SPI
@@ -1068,15 +1217,21 @@ main (void)
 		goto handle_fatal_error;
 	}
 
+	/* Initialize GPIO module. */
+	CyFxGpioInit();
+	CyU3PGpioSimpleSetValue (TEST_LED, 0); //---
+
 	if ( io_cfg.useSpi == CyTrue )
 	{
 	    CyU3PSpiConfig_t spiConfig;
 	    CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
 	    apiRetStatus = CyU3PSpiInit();
-	        if (apiRetStatus != CY_U3P_SUCCESS)
-	        {
-	        	CyU3PDebugPrint (4, "SPI init failed, Error Code = %d\n",apiRetStatus);
-	        }
+
+		if (apiRetStatus != CY_U3P_SUCCESS)
+		{
+			//CyU3PGpioSimpleSetValue (TEST_LED, 1);
+			CyU3PDebugPrint (4, "SPI init failed, Error Code = %d\n",apiRetStatus);
+		}
         /* Start the SPI master block. Run the SPI clock at 25MHz
          * and configure the word length to 8 bits. Also configure
          * the slave select using FW. */
@@ -1087,17 +1242,21 @@ main (void)
         spiConfig.cpha       = CyFalse;//CyTrue;
         spiConfig.leadTime   = CY_U3P_SPI_SSN_LAG_LEAD_HALF_CLK;
         spiConfig.lagTime    = CY_U3P_SPI_SSN_LAG_LEAD_HALF_CLK;
-        spiConfig.ssnCtrl    = CY_U3P_SPI_SSN_CTRL_HW_EACH_WORD;
-        //spiConfig.ssnCtrl    = CY_U3P_SPI_SSN_CTRL_FW;
-        spiConfig.clock      = 10000000;
-        spiConfig.wordLen    = 16;//8;
+        //spiConfig.ssnCtrl    = CY_U3P_SPI_SSN_CTRL_HW_EACH_WORD;
+        spiConfig.ssnCtrl    = CY_U3P_SPI_SSN_CTRL_FW;
+        spiConfig.clock      = 1000000; //10000000;
+        spiConfig.wordLen    = 8; // 16;
 
         apiRetStatus = CyU3PSpiSetConfig (&spiConfig, NULL);
         if (apiRetStatus != CY_U3P_SUCCESS)
         {
+        	CyU3PGpioSimpleSetValue (TEST_LED, 1);
         	CyU3PDebugPrint (4, "SPI config failed, Error Code = %d\n",apiRetStatus);
         }
 
+        glEp0Buffer[0] = 0xB3;
+        CyU3PMemSet ((uint8_t *)&glEp0Buffer[0], 0xB3, sizeof (glEp0Buffer));
+        CyU3PSpiTransmitWords(glEp0Buffer, 512);
 	}
 
 
