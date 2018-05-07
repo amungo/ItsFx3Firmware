@@ -57,6 +57,7 @@
 #include "cyu3gpif.h"
 #include "cyu3pib.h"
 #include "cyu3spi.h"
+#include "cyu3gpio.h"
 #include "pib_regs.h"
 #include "cyfxspi_bb.h"
 #include "gpif2_config.h"
@@ -619,17 +620,10 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 		FirmwareDescription_t fw_desc;
 		fw_desc.version = PROJECT_VERSION;
 		CyU3PUsbSendEP0Data( (uint16_t)sizeof( FirmwareDescription_t ), (uint8_t*)&fw_desc);
+
 		return CyTrue;
 
-	} else if (bRequest == CMD_CYPRESS_RESET) {
-		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
-		//SPI send
-		CyU3PSpiSetSsnLine (CyFalse);
-		CyU3PSpiTransmitWords(glEp0Buffer, 2);
-		CyU3PSpiSetSsnLine (CyTrue);
-		return CyTrue;
-
-	} else if (bRequest == CMD_CYPRESS_RESET) {
+	}else if (bRequest == CMD_CYPRESS_RESET) {
 
 		CyU3PUsbGetEP0Data( wLength, glEp0Buffer, NULL );
 		state.need_reset = CyTrue;
@@ -697,9 +691,9 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 		if((xFpga_Done != CyTrue))
 			glEp0Buffer[0] = 0;
 
-		CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
+		apiRetStatus = CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
 
-		return CyTrue;
+		return (apiRetStatus == CY_U3P_SUCCESS) ? CyTrue : CyFalse;
 	}
 	else if (bRequest == CMD_ECP5_WRITE) { //ECP5 transmit
 
@@ -740,74 +734,86 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 	else if(bRequest == CMD_ECP5_CSON) { //CS on
 		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
 		CyU3PGpioSimpleSetValue (FPGA_CS, 1);
-		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+		apiRetStatus = CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
 
-		return CyTrue;
+		return (apiRetStatus == CY_U3P_SUCCESS) ? CyTrue : CyFalse;
+
 	}else if(bRequest == CMD_ECP5_CSOFF) { //CS off
 		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
 		CyU3PGpioSimpleSetValue (FPGA_CS, 0);
-		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+		apiRetStatus = CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
 
-		return CyTrue;
+		return (apiRetStatus == CY_U3P_SUCCESS) ? CyTrue : CyFalse;
+
 	}else if(bRequest == CMD_REG_WRITE8) { // NT1065 write SPI 8 bit
 		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
 		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
 		CyU3PGpioSimpleSetValue (NT1065_CS, 0);
-		CyU3PSpiTransmitWords(glEp0Buffer, 2);
+		apiRetStatus = CyU3PSpiTransmitWords(glEp0Buffer, 2);
 		CyU3PGpioSimpleSetValue (NT1065_CS, 1);
 
-		return CyTrue;
+		return (apiRetStatus == CY_U3P_SUCCESS) ? CyTrue : CyFalse;
+
 	}else if(bRequest == CMD_REG_READ8) { //NT1065 read
 		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
 		CyU3PGpioSimpleSetValue (NT1065_CS, 0);
 		glEp0Buffer[0] = wValue;
 		CyU3PSpiTransmitWords(glEp0Buffer, 1);
-		CyU3PSpiReceiveWords(glEp0Buffer, 1);
+		apiRetStatus = CyU3PSpiReceiveWords(glEp0Buffer, 1);
 		CyU3PGpioSimpleSetValue (NT1065_CS, 1);
 
-		CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
+		if(apiRetStatus == CY_U3P_SUCCESS)
+			apiRetStatus = CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
 
-		return CyTrue;
+		return (apiRetStatus == CY_U3P_SUCCESS) ? CyTrue : CyFalse;
+
 	}else if(bRequest == CMD_NT1065_RESET) { //NT1065 reset
-		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
-		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+
+		if(CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL) != CY_U3P_SUCCESS)
+			return CyFalse;
 
 		glEp0Buffer[0] = 0;
-		CyU3PSpiTransmitWords(glEp0Buffer, 1);
-		CyU3PGpioSimpleSetValue (TCXO_EN, 0);
-		CyU3PGpioSimpleSetValue (RCV_EN, 0);
-		CyU3PGpioSimpleSetValue (NT1065_CS, 0);
-		CyU3PGpioSimpleSetValue (NT1065_AOK, 0);
-		CyU3PGpioSimpleSetValue (TCXO_EN, 1);
+		if(CyU3PSpiTransmitWords(glEp0Buffer, 1) != CY_U3P_SUCCESS)
+			return CyFalse;
+		if(CyU3PGpioSimpleSetValue (TCXO_EN, 0) != CY_U3P_SUCCESS)
+			return CyFalse;
+		if(CyU3PGpioSimpleSetValue (RCV_EN, 0) != CY_U3P_SUCCESS)
+			return CyFalse;
+		if(CyU3PGpioSimpleSetValue (NT1065_CS, 0) != CY_U3P_SUCCESS)
+			return CyFalse;
+		if(CyU3PGpioSimpleSetValue (NT1065_AOK, 0) != CY_U3P_SUCCESS)
+			return CyFalse;
+		if(CyU3PGpioSimpleSetValue (TCXO_EN, 1) != CY_U3P_SUCCESS)
+			return CyFalse;
 		CyU3PThreadSleep(100);
-		CyU3PGpioSimpleSetValue (RCV_EN, 1); //RCV_EN
+		if(CyU3PGpioSimpleSetValue (RCV_EN, 1) != CY_U3P_SUCCESS)
+			return CyFalse;
 		CyU3PGpioSimpleSetValue (NT1065_CS, 1);
 
 		return CyTrue;
+
 	}else if(bRequest == CMD_ECP5_SET_DAC) { //DAC set
 		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
 		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
 
 		CyU3PGpioSimpleSetValue (FCTRL_CS, 0);
-
 		apiRetStatus = CyU3PSpiTransmitWords(glEp0Buffer, 3);
 		CyU3PGpioSimpleSetValue (FCTRL_CS, 1);
 
 		CyU3PGpioSimpleSetValue (FCTRL_LATCH, 0);
 		CyU3PGpioSimpleSetValue (FCTRL_LATCH, 1);
 
-		return CyTrue;
+		return (apiRetStatus == CY_U3P_SUCCESS) ? CyTrue : CyFalse;
  	}
 	else if(bRequest == CMD_DEVICE_START) {
 		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
 		CyU3PGpifControlSWInput(CyTrue);
-		//CyU3PGpioSetValue (FPGA_STRMEN, 1);
 
 		return CyTrue;
+
 	}else if (bRequest == CMD_DEVICE_STOP){
 		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
 		CyU3PGpifControlSWInput(CyFalse);
-		//CyU3PGpioSetValue (FPGA_STRMEN, 0);
 
 		return CyTrue;
 	}
