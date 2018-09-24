@@ -83,7 +83,7 @@
       <Action ElementId="LD_DATA_COUNT0" ActionType="LD_DATA_COUNT">
         <CounterType>Up</CounterType>
         <CounterLoadValue>0</CounterLoadValue>
-        <CounterLimit>8190</CounterLimit>
+        <CounterLimit>16382</CounterLimit>
         <CounterReloadEnable>Disable</CounterReloadEnable>
         <CounterIncrement>1</CounterIncrement>
         <CounterInterrupt>Mask</CounterInterrupt>
@@ -111,7 +111,7 @@
       <Action ElementId="LD_DATA_COUNT0" ActionType="LD_DATA_COUNT">
         <CounterType>Up</CounterType>
         <CounterLoadValue>0</CounterLoadValue>
-        <CounterLimit>8190</CounterLimit>
+        <CounterLimit>16382</CounterLimit>
         <CounterReloadEnable>Disable</CounterReloadEnable>
         <CounterIncrement>1</CounterIncrement>
         <CounterInterrupt>Mask</CounterInterrupt>
