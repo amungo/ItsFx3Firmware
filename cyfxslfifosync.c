@@ -681,8 +681,14 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 		CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
 
 		return CyTrue;
-	}
-	else if (bRequest == CMD_ECP5_CHECK) { //FPGA configuration: last phase
+	}else if(bRequest == CMD_ECP5_SWITCHOFF) {
+		glEp0Buffer[0] = 1;
+		CyU3PGpioSimpleSetValue (FPGA_PROG_B, 0);
+
+		CyU3PSpiTransmitWords(glEp0Buffer, wLength);
+		return CyTrue;
+
+	} else if (bRequest == CMD_ECP5_CHECK) { //FPGA configuration: last phase
 		CyBool_t xFpga_Done;
 		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
 

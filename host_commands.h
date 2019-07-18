@@ -9,6 +9,7 @@
 #define CMD_REG_WRITE8		( 0xD6 )
 #define CMD_REG_READ8		( 0xD9 )
 #define CMD_ECP5_RESET		( 0xD0 )
+#define CMD_ECP5_SWITCHOFF	( 0xDA )
 #define CMD_ECP5_WRITE		( 0xD1 )
 #define CMD_ECP5_READ		( 0xD5 )
 #define CMD_ECP5_CSON		( 0xD3 )
