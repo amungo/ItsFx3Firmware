@@ -656,13 +656,13 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 	} else if (bRequest == CMD_ECP5_RESET) { //ECP5 FPGA configuration: First phase
 		CyBool_t xFpga_Init_B;
 		glEp0Buffer[0] = 1;
-		CyU3PGpioSimpleSetValue (FPGA_PROG_B, 0);
 
+		CyU3PGpioSimpleSetValue (FPGA_PROG_B, 0);
 		CyU3PSpiTransmitWords(glEp0Buffer, wLength);
 
 		CyU3PGpioSimpleGetValue (FPGA_INIT_B, &xFpga_Init_B);
-
 		CyU3PGpioSimpleGetValue (FPGA_INIT_B, &xFpga_Init_B);
+
 		if (0 == xFpga_Init_B)
 		{
 			CyU3PThreadSleep(10);
@@ -672,7 +672,8 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 
 			/* Check if FPGA is now ready by testing the FPGA_Init_B signal */
 			CyU3PGpioSimpleGetValue (FPGA_INIT_B, &xFpga_Init_B);
-			if( 0 == xFpga_Init_B )	glEp0Buffer[0] = 0;
+			if( 0 == xFpga_Init_B )
+				glEp0Buffer[0] = 0;
 		}
 		else
 		{
@@ -681,6 +682,7 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 		CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
 
 		return CyTrue;
+
 	}else if(bRequest == CMD_ECP5_SWITCHOFF) {
 		glEp0Buffer[0] = 1;
 		CyU3PGpioSimpleSetValue (FPGA_PROG_B, 0);
@@ -694,8 +696,11 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 
 		glEp0Buffer[0] = 1;
 		CyU3PGpioSimpleGetValue (FPGA_DONE, &xFpga_Done);
-		if((xFpga_Done != CyTrue))
+
+		if((xFpga_Done != CyTrue)) {
 			glEp0Buffer[0] = 0;
+			CyU3PGpioSimpleSetValue (TEST_LED, 1);
+		}
 
 		apiRetStatus = CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
 
@@ -1231,7 +1236,7 @@ main (void)
         spiConfig.lagTime    = CY_U3P_SPI_SSN_LAG_LEAD_HALF_CLK;
         //spiConfig.ssnCtrl    = CY_U3P_SPI_SSN_CTRL_HW_EACH_WORD;
         spiConfig.ssnCtrl    = CY_U3P_SPI_SSN_CTRL_FW;
-        spiConfig.clock      = 1000000;
+        spiConfig.clock      = 25000000; //@CAMRY
         spiConfig.wordLen    = 8; // 16;
 
 

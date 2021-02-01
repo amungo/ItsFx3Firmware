@@ -34,9 +34,9 @@
 
 #define FPGA_HOLDN		(41)
 #define FPGA_CS 		(44)
-#define FPGA_INIT_B 	(43)	//52
-#define FPGA_PROG_B 	(42) 	//51
-#define FPGA_DONE 		(40) 	//50
+#define FPGA_INIT_B 	(51) //++(43)	//52
+#define FPGA_PROG_B 	(39) //++(42) 	//51
+#define FPGA_DONE 		(40) 	//+++50
 
 #define TEST_LED 		(45)
 #define TEST_LED2 		(48)
@@ -45,10 +45,10 @@
 
 // NT
 #define TCXO_EN 		(36)
-#define RCV_EN			(23)
+#define RCV_EN			(37) //+++ (23)
 #define ANTFEED_EN 		(38)
-#define NT1065_CS 		(39)
-#define NT1065_AOK 		(33)
+#define NT1065_CS 		(35) // (47) //+++(39)
+#define NT1065_AOK 		(33) // (46)
 
 
 #define FCTRL_CS 		(35)
