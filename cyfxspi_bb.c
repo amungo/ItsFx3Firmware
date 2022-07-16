@@ -118,6 +118,8 @@ CyU3PReturnStatus_t CyU3PSpiSendData(uint8_t value /* 8 bit write data */) {
 
 	return apiRetStatus;
 }
+
+
 void CyFxGpioInit(void) {
 	CyU3PGpioClock_t gpioClock;
 	CyU3PGpioSimpleConfig_t gpioConfig;
@@ -181,54 +183,120 @@ void CyFxGpioInit(void) {
 	}
 #endif
 
-	apiRetStatus = CyU3PDeviceGpioOverride(SE4150EN, CyTrue);
+	apiRetStatus = CyU3PDeviceGpioOverride(ANTFEED_EN, CyTrue);
 	if (apiRetStatus != 0) {
 		/* Error Handling */
 		CyU3PDebugPrint(4,
 				"SPI_SS0 CyU3PDeviceGpioOverride failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PDeviceGpioOverride(AD9361RST, CyTrue);
+	apiRetStatus = CyU3PDeviceGpioOverride(TCXO_EN, CyTrue);
 	if (apiRetStatus != 0) {
 		/* Error Handling */
 		CyU3PDebugPrint(4,
-				"SPI_SS0 CyU3PDeviceGpioOverride failed, error code = %d\n",
+				"TCXO_EN CyU3PDeviceGpioOverride failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PDeviceGpioOverride(NT1065EN, CyTrue);
+	apiRetStatus = CyU3PDeviceGpioOverride(NT1065_CS, CyTrue);
 	if (apiRetStatus != 0) {
 		/* Error Handling */
 		CyU3PDebugPrint(4,
-				"SPI_SS0 CyU3PDeviceGpioOverride failed, error code = %d\n",
+				"NT1065_CS CyU3PDeviceGpioOverride failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PDeviceGpioOverride(VCTCXOEN, CyTrue);
+	apiRetStatus = CyU3PDeviceGpioOverride(RCV_EN, CyTrue);
 	if (apiRetStatus != 0) {
 		/* Error Handling */
 		CyU3PDebugPrint(4,
-				"SPI_SS0 CyU3PDeviceGpioOverride failed, error code = %d\n",
+				"RCV_EN CyU3PDeviceGpioOverride failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PDeviceGpioOverride(ANTFEEDEN, CyTrue);
+	apiRetStatus = CyU3PDeviceGpioOverride(TEST_LED, CyTrue);
 	if (apiRetStatus != 0) {
 		/* Error Handling */
 		CyU3PDebugPrint(4,
-				"SPI_SS0 CyU3PDeviceGpioOverride failed, error code = %d\n",
+				"TEST_LED CyU3PDeviceGpioOverride failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PDeviceGpioOverride(ANTLNAEN, CyTrue);
+	apiRetStatus = CyU3PDeviceGpioOverride(TEST_LED2, CyTrue);
 	if (apiRetStatus != 0) {
 		/* Error Handling */
 		CyU3PDebugPrint(4,
-				"SPI_SS0 CyU3PDeviceGpioOverride failed, error code = %d\n",
+				"TEST_LED2 CyU3PDeviceGpioOverride failed, error code = %d\n",
 				apiRetStatus);
+	}
+	apiRetStatus = CyU3PDeviceGpioOverride(FPGA_INIT_B, CyTrue);
+	if (apiRetStatus != 0) {
+		/* Error Handling */
+		CyU3PDebugPrint(4,
+				"FPGA_INIT_B CyU3PDeviceGpioOverride failed, error code = %d\n",
+				apiRetStatus);
+
+	}
+	apiRetStatus = CyU3PDeviceGpioOverride(FPGA_DONE, CyTrue);
+	if (apiRetStatus != 0) {
+		/* Error Handling */
+		CyU3PDebugPrint(4,
+				"FPGA_DONE CyU3PDeviceGpioOverride failed, error code = %d\n",
+				apiRetStatus);
+
+	}
+	apiRetStatus = CyU3PDeviceGpioOverride(FPGA_PROG_B, CyTrue);
+	if (apiRetStatus != 0) {
+		/* Error Handling */
+		CyU3PDebugPrint(4,
+				"FPGA_PROG_B CyU3PDeviceGpioOverride failed, error code = %d\n",
+				apiRetStatus);
+
+	}
+	//FPGA_CS
+	apiRetStatus = CyU3PDeviceGpioOverride(FPGA_CS, CyTrue);
+	if (apiRetStatus != 0) {
+		/* Error Handling */
+		CyU3PDebugPrint(4,
+				"FPGA_CS CyU3PDeviceGpioOverride failed, error code = %d\n",
+				apiRetStatus);
+
+	}
+	apiRetStatus = CyU3PDeviceGpioOverride(FPGA_HOLDN, CyTrue);
+	if (apiRetStatus != 0) {
+		/* Error Handling */
+		CyU3PDebugPrint(4,
+				"FPGA_HOLDN CyU3PDeviceGpioOverride failed, error code = %d\n",
+				apiRetStatus);
+
+	}
+	//NT1065_AOK
+	apiRetStatus = CyU3PDeviceGpioOverride(NT1065_AOK, CyTrue);
+	if (apiRetStatus != 0) {
+		/* Error Handling */
+		CyU3PDebugPrint(4,
+				"NT1065_AOK CyU3PDeviceGpioOverride failed, error code = %d\n",
+				apiRetStatus);
+
+	}
+	apiRetStatus = CyU3PDeviceGpioOverride(FCTRL_LATCH, CyTrue);
+	if (apiRetStatus != 0) {
+		/* Error Handling */
+		CyU3PDebugPrint(4,
+				"FCTRL_LATCH CyU3PDeviceGpioOverride failed, error code = %d\n",
+				apiRetStatus);
+
+	}
+	apiRetStatus = CyU3PDeviceGpioOverride(FCTRL_CS, CyTrue);
+	if (apiRetStatus != 0) {
+		/* Error Handling */
+		CyU3PDebugPrint(4,
+				"FCTRL_CS CyU3PDeviceGpioOverride failed, error code = %d\n",
+				apiRetStatus);
+
 	}
 
 	/* Configure  output line : CLK, MOSI, SS */
-	gpioConfig.outValue = CyTrue;
-	gpioConfig.driveLowEn = CyTrue;
-	gpioConfig.driveHighEn = CyTrue;
-	gpioConfig.inputEn = CyFalse;
+	gpioConfig.outValue = CyFalse;
+	gpioConfig.driveLowEn = CyFalse;
+	gpioConfig.driveHighEn = CyFalse;
+	gpioConfig.inputEn = CyTrue;
 	gpioConfig.intrMode = CY_U3P_GPIO_NO_INTR;
 #if 0
 	apiRetStatus = CyU3PGpioSetSimpleConfig(SPI_CLK, &gpioConfig);
@@ -253,46 +321,119 @@ void CyFxGpioInit(void) {
 				apiRetStatus);
 	}
 #endif
-	apiRetStatus = CyU3PGpioSetSimpleConfig(SE4150EN, &gpioConfig);
+	apiRetStatus = CyU3PGpioSetSimpleConfig(FPGA_INIT_B, &gpioConfig);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
-				"CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				"FPGA_INIT_B CyU3PGpioSetSimpleConfig failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PGpioSetSimpleConfig(NT1065EN, &gpioConfig);
+	apiRetStatus = CyU3PGpioSetSimpleConfig(FPGA_DONE, &gpioConfig);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
-				"CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				"FPGA_DONE CyU3PGpioSetSimpleConfig failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PGpioSetSimpleConfig(VCTCXOEN, &gpioConfig);
+	apiRetStatus = CyU3PGpioSetSimpleConfig(NT1065_AOK, &gpioConfig);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
-				"CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				"NT1065_AOK CyU3PGpioSetSimpleConfig failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PGpioSetSimpleConfig(ANTFEEDEN, &gpioConfig);
+
+	gpioConfig.outValue = CyTrue;
+	gpioConfig.driveLowEn = CyTrue;
+	gpioConfig.driveHighEn = CyTrue;
+	gpioConfig.inputEn = CyFalse;
+	gpioConfig.intrMode = CY_U3P_GPIO_NO_INTR;
+
+	apiRetStatus = CyU3PGpioSetSimpleConfig(TEST_LED, &gpioConfig);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
-				"CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				"TEST_LED CyU3PGpioSetSimpleConfig failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PGpioSetSimpleConfig(ANTLNAEN, &gpioConfig);
+	apiRetStatus = CyU3PGpioSetSimpleConfig(TEST_LED2, &gpioConfig);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
-				"CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				"TEST_LED2 CyU3PGpioSetSimpleConfig failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PGpioSetSimpleConfig(AD9361RST, &gpioConfig);
+	apiRetStatus = CyU3PGpioSetSimpleConfig(FPGA_PROG_B, &gpioConfig);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
-				"CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				"FPGA_PROG_B CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				apiRetStatus);
+	}
+	apiRetStatus = CyU3PGpioSetSimpleConfig(FPGA_CS, &gpioConfig);
+	if (apiRetStatus != CY_U3P_SUCCESS) {
+		/* Error handling */
+		CyU3PDebugPrint(4,
+				"FPGA_CS CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				apiRetStatus);
+	}
+	apiRetStatus = CyU3PGpioSetSimpleConfig(FPGA_HOLDN, &gpioConfig);
+	if (apiRetStatus != CY_U3P_SUCCESS) {
+		/* Error handling */
+		CyU3PDebugPrint(4,
+				"FPGA_HOLDN CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				apiRetStatus);
+	}
+	apiRetStatus = CyU3PGpioSetSimpleConfig(FPGA_STRMEN, &gpioConfig);
+	if (apiRetStatus != CY_U3P_SUCCESS) {
+		/* Error handling */
+		CyU3PDebugPrint(4,
+				"FPGA_STRMEN CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				apiRetStatus);
+	}
+	//RCV_EN
+	apiRetStatus = CyU3PGpioSetSimpleConfig(RCV_EN, &gpioConfig);
+	if (apiRetStatus != CY_U3P_SUCCESS) {
+		/* Error handling */
+		CyU3PDebugPrint(4,
+				"RCV_EN CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				apiRetStatus);
+	}
+	//NT1065_CS
+	apiRetStatus = CyU3PGpioSetSimpleConfig(NT1065_CS, &gpioConfig);
+	if (apiRetStatus != CY_U3P_SUCCESS) {
+		/* Error handling */
+		CyU3PDebugPrint(4,
+				"NT1065_CS CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				apiRetStatus);
+	}
+	//TCXO_EN
+	apiRetStatus = CyU3PGpioSetSimpleConfig(TCXO_EN, &gpioConfig);
+	if (apiRetStatus != CY_U3P_SUCCESS) {
+		/* Error handling */
+		CyU3PDebugPrint(4,
+				"TCXO_EN CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				apiRetStatus);
+	}
+	apiRetStatus = CyU3PGpioSetSimpleConfig(ANTFEED_EN, &gpioConfig);
+	if (apiRetStatus != CY_U3P_SUCCESS) {
+		/* Error handling */
+		CyU3PDebugPrint(4,
+				"ANTFEED_EN CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				apiRetStatus);
+	}
+	apiRetStatus = CyU3PGpioSetSimpleConfig(FCTRL_LATCH, &gpioConfig);
+	if (apiRetStatus != CY_U3P_SUCCESS) {
+		/* Error handling */
+		CyU3PDebugPrint(4,
+				"FCTRL_LATCH CyU3PGpioSetSimpleConfig failed, error code = %d\n",
+				apiRetStatus);
+	}
+	apiRetStatus = CyU3PGpioSetSimpleConfig(FCTRL_CS, &gpioConfig);
+	if (apiRetStatus != CY_U3P_SUCCESS) {
+		/* Error handling */
+		CyU3PDebugPrint(4,
+				"FCTRL_CS CyU3PGpioSetSimpleConfig failed, error code = %d\n",
 				apiRetStatus);
 	}
 
@@ -313,58 +454,72 @@ void CyFxGpioInit(void) {
 	}
 #endif
 
-	apiRetStatus = CyU3PGpioSetValue(SE4150EN, CyTrue);
+	apiRetStatus = CyU3PGpioSetValue(TEST_LED, CyFalse);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
-				"CyU3PGpioSetValue failed, error code = %d\n",
+				"TEST_LED CyU3PGpioSetValue failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PGpioSetValue(AD9361RST, CyFalse);
+	apiRetStatus = CyU3PGpioSetValue(TEST_LED2, CyFalse);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
-				"CyU3PGpioSetValue failed, error code = %d\n",
+				"TEST_LED2 CyU3PGpioSetValue failed, error code = %d\n",
 				apiRetStatus);
 	}
 	CyU3PThreadSleep (1);
-	apiRetStatus = CyU3PGpioSetValue(AD9361RST, CyTrue);
+	apiRetStatus = CyU3PGpioSetValue(RCV_EN, CyFalse);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
-				"CyU3PGpioSetValue failed, error code = %d\n",
+				"RCV_EN CyU3PGpioSetValue failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PGpioSetValue(ANTLNAEN, CyTrue);
+	apiRetStatus = CyU3PGpioSetValue(TCXO_EN, CyTrue);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
-				"CyU3PGpioSetValue failed, error code = %d\n",
+				"TCXO_EN CyU3PGpioSetValue failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PGpioSetValue(NT1065EN, CyTrue);
+	apiRetStatus = CyU3PGpioSetValue(RCV_EN, CyTrue);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
-				"CyU3PGpioSetValue failed, error code = %d\n",
+				"RCV_EN CyU3PGpioSetValue failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PGpioSetValue(VCTCXOEN, CyTrue);
+	apiRetStatus = CyU3PGpioSetValue(FPGA_HOLDN, CyTrue);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
-				"CyU3PGpioSetValue failed, error code = %d\n",
+				"FPGA_HOLDN CyU3PGpioSetValue failed, error code = %d\n",
 				apiRetStatus);
 	}
-	apiRetStatus = CyU3PGpioSetValue(ANTFEEDEN, CyTrue);
+	apiRetStatus = CyU3PGpioSetValue(ANTFEED_EN, CyTrue);
 	if (apiRetStatus != CY_U3P_SUCCESS) {
 		/* Error handling */
 		CyU3PDebugPrint(4,
-				"CyU3PGpioSetValue failed, error code = %d\n",
+				"ANTFEED_EN CyU3PGpioSetValue failed, error code = %d\n",
 				apiRetStatus);
 	}
-
+	apiRetStatus = CyU3PGpioSetValue(FCTRL_CS, CyTrue);
+	if (apiRetStatus != CY_U3P_SUCCESS) {
+		/* Error handling */
+		CyU3PDebugPrint(4,
+				"FCTRL_CS CyU3PGpioSetValue failed, error code = %d\n",
+				apiRetStatus);
+	}
+	apiRetStatus = CyU3PGpioSetValue(FCTRL_LATCH, CyTrue);
+	if (apiRetStatus != CY_U3P_SUCCESS) {
+		/* Error handling */
+		CyU3PDebugPrint(4,
+				"FCTRL_LATCH CyU3PGpioSetValue failed, error code = %d\n",
+				apiRetStatus);
+	}
 }
+
 
 /* [ ] */
 
