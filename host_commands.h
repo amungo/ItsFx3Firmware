@@ -20,6 +20,10 @@
 #define CMD_DEVICE_STOP		( 0xBB )
 #define CMD_NT1065_RESET	( 0xD7 )
 
+#define CMD_ADXL_WRITE		( 0xDB )
+#define CMD_ADXL_READ		( 0xDE )
+
+#define CMD_SET_SPI_CLOCK	( 0xB5 )
 
 typedef struct FirmwareDescription_t {
 	uint32_t version;

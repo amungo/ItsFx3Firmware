@@ -759,26 +759,60 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 	}else if(bRequest == CMD_REG_WRITE8) { // NT1065 write SPI 8 bit
 		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
 		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
-		CyU3PGpioSimpleSetValue (NT1065_CS, 0);
+		CyU3PGpioSimpleSetValue (NT1065_CS_1, 0);
 		apiRetStatus = CyU3PSpiTransmitWords(glEp0Buffer, 2);
-		CyU3PGpioSimpleSetValue (NT1065_CS, 1);
+		CyU3PGpioSimpleSetValue (NT1065_CS_1, 1);
+		if(apiRetStatus != CY_U3P_SUCCESS)
+			return CyFalse;
+
+		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+		CyU3PGpioSimpleSetValue (NT1065_CS_2, 0);
+		apiRetStatus = CyU3PSpiTransmitWords(glEp0Buffer, 2);
+		CyU3PGpioSimpleSetValue (NT1065_CS_2, 1);
 
 		return (apiRetStatus == CY_U3P_SUCCESS) ? CyTrue : CyFalse;
 
 	}else if(bRequest == CMD_REG_READ8) { //NT1065 read
+		uint8_t nt_ss;
 		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
-		CyU3PGpioSimpleSetValue (NT1065_CS, 0);
+
+		nt_ss = (wIndex == 0) ? NT1065_CS_1 : NT1065_CS_2;
+
+		CyU3PGpioSimpleSetValue (nt_ss, 0);
 		glEp0Buffer[0] = wValue;
 		CyU3PSpiTransmitWords(glEp0Buffer, 1);
 		apiRetStatus = CyU3PSpiReceiveWords(glEp0Buffer, 1);
-		CyU3PGpioSimpleSetValue (NT1065_CS, 1);
+		CyU3PGpioSimpleSetValue (nt_ss, 1);
 
 		if(apiRetStatus == CY_U3P_SUCCESS)
 			apiRetStatus = CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
 
 		return (apiRetStatus == CY_U3P_SUCCESS) ? CyTrue : CyFalse;
 
-	}else if(bRequest == CMD_NT1065_RESET) { //NT1065 reset
+	}else if(bRequest == CMD_ADXL_WRITE) {
+		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+		CyU3PGpioSimpleSetValue (ADXL_CS, 0);
+		apiRetStatus = CyU3PSpiTransmitWords(glEp0Buffer, 2);
+		CyU3PGpioSimpleSetValue (ADXL_CS, 1);
+
+		return (apiRetStatus == CY_U3P_SUCCESS) ? CyTrue : CyFalse;
+
+	}else if(bRequest == CMD_ADXL_READ) {
+		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+		CyU3PGpioSimpleSetValue (ADXL_CS, 0);
+		glEp0Buffer[0] = wValue;
+		CyU3PSpiTransmitWords(glEp0Buffer, 1);
+		apiRetStatus = CyU3PSpiReceiveWords(glEp0Buffer, 1);
+		CyU3PGpioSimpleSetValue (ADXL_CS, 1);
+
+		if(apiRetStatus == CY_U3P_SUCCESS)
+			apiRetStatus = CyU3PUsbSendEP0Data (wLength, glEp0Buffer);
+
+		return (apiRetStatus == CY_U3P_SUCCESS) ? CyTrue : CyFalse;
+
+	}
+	else if(bRequest == CMD_NT1065_RESET) { //NT1065 reset
 
 		if(CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL) != CY_U3P_SUCCESS)
 			return CyFalse;
@@ -790,16 +824,36 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 			return CyFalse;
 		if(CyU3PGpioSimpleSetValue (RCV_EN, 0) != CY_U3P_SUCCESS)
 			return CyFalse;
-		if(CyU3PGpioSimpleSetValue (NT1065_CS, 0) != CY_U3P_SUCCESS)
+		if(CyU3PGpioSimpleSetValue (NT1065_CS_1, 0) != CY_U3P_SUCCESS)
 			return CyFalse;
-		if(CyU3PGpioSimpleSetValue (NT1065_AOK, 0) != CY_U3P_SUCCESS)
+		if(CyU3PGpioSimpleSetValue (NT1065_AOK_1, 0) != CY_U3P_SUCCESS)
 			return CyFalse;
 		if(CyU3PGpioSimpleSetValue (TCXO_EN, 1) != CY_U3P_SUCCESS)
 			return CyFalse;
 		CyU3PThreadSleep(100);
 		if(CyU3PGpioSimpleSetValue (RCV_EN, 1) != CY_U3P_SUCCESS)
 			return CyFalse;
-		CyU3PGpioSimpleSetValue (NT1065_CS, 1);
+		CyU3PGpioSimpleSetValue (NT1065_AOK_1, 1);
+		CyU3PGpioSimpleSetValue (NT1065_CS_1, 1);
+
+		glEp0Buffer[0] = 0;
+		if(CyU3PSpiTransmitWords(glEp0Buffer, 1) != CY_U3P_SUCCESS)
+			return CyFalse;
+		if(CyU3PGpioSimpleSetValue (TCXO_EN, 0) != CY_U3P_SUCCESS)
+			return CyFalse;
+		if(CyU3PGpioSimpleSetValue (RCV_EN, 0) != CY_U3P_SUCCESS)
+			return CyFalse;
+		if(CyU3PGpioSimpleSetValue (NT1065_CS_2, 0) != CY_U3P_SUCCESS)
+			return CyFalse;
+		if(CyU3PGpioSimpleSetValue (NT1065_AOK_2, 0) != CY_U3P_SUCCESS)
+			return CyFalse;
+		if(CyU3PGpioSimpleSetValue (TCXO_EN, 1) != CY_U3P_SUCCESS)
+			return CyFalse;
+		CyU3PThreadSleep(100);
+		if(CyU3PGpioSimpleSetValue (RCV_EN, 1) != CY_U3P_SUCCESS)
+			return CyFalse;
+		CyU3PGpioSimpleSetValue (NT1065_AOK_2, 1);
+		CyU3PGpioSimpleSetValue (NT1065_CS_2, 1);
 
 		return CyTrue;
 
@@ -827,6 +881,33 @@ CyFxBulkSrcSinkApplnUSBSetupCB (
 		CyU3PGpifControlSWInput(CyFalse);
 
 		return CyTrue;
+	}
+	else if(bRequest == CMD_SET_SPI_CLOCK) {
+
+		CyU3PSpiConfig_t spiConfig;
+		CyU3PReturnStatus_t apiRetStatus = CY_U3P_SUCCESS;
+
+		CyU3PUsbGetEP0Data (wLength, glEp0Buffer, NULL);
+
+		/* Start the SPI master block. Run the SPI clock from user
+		 * and configure the word length to 8 bits. Also configure
+		 * the slave select using FW. */
+		CyU3PMemSet ((uint8_t *)&spiConfig, 0, sizeof(spiConfig));
+		spiConfig.isLsbFirst = CyFalse;
+		spiConfig.cpol       = CyFalse;
+		spiConfig.ssnPol     = CyFalse;
+		spiConfig.cpha       = CyFalse;
+		spiConfig.leadTime   = CY_U3P_SPI_SSN_LAG_LEAD_HALF_CLK;
+		spiConfig.lagTime    = CY_U3P_SPI_SSN_LAG_LEAD_HALF_CLK;
+		spiConfig.ssnCtrl    = CY_U3P_SPI_SSN_CTRL_FW;
+		spiConfig.clock      = wValue * 1000;
+		spiConfig.wordLen    = 8;
+
+
+		apiRetStatus = CyU3PSpiSetConfig (&spiConfig, NULL);
+
+		return (apiRetStatus == CY_U3P_SUCCESS) ? CyTrue : CyFalse;
+
 	}
 
 	/* Fast enumeration is used. Only class, vendor and unknown requests
@@ -1236,7 +1317,7 @@ main (void)
         spiConfig.lagTime    = CY_U3P_SPI_SSN_LAG_LEAD_HALF_CLK;
         //spiConfig.ssnCtrl    = CY_U3P_SPI_SSN_CTRL_HW_EACH_WORD;
         spiConfig.ssnCtrl    = CY_U3P_SPI_SSN_CTRL_FW;
-        spiConfig.clock      = 25000000; //@CAMRY
+        spiConfig.clock      = 1000000; //@CAMRY
         spiConfig.wordLen    = 8; // 16;
 
 

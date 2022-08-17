@@ -47,13 +47,19 @@
 #define TCXO_EN 		(36)
 #define RCV_EN			(37) //+++ (23)
 #define ANTFEED_EN 		(38)
-#define NT1065_CS 		(35) // (47) //+++(39)
-#define NT1065_AOK 		(33) // (46)
+
+#define NT1065_CS_1 		(35) // (47) //+++(39)
+#define NT1065_AOK_1 		(33) // (46)
+
+#define NT1065_CS_2 		(47)
+#define NT1065_AOK_2 		(46)
 
 
-#define FCTRL_CS 		(35)
+#define FCTRL_CS 		(50)//+++ (47) //(35)
 #define FCTRL_LATCH 	(34)
 
+// ADXL
+#define ADXL_CS			(29)
 
 /*
  Summary
